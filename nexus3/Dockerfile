@@ -52,14 +52,20 @@ ARG NEXUS_REPOSITORY_MANAGER_COOKBOOK_VERSION="release-0.5.20190212-155606.d1afd
 ARG NEXUS_REPOSITORY_MANAGER_COOKBOOK_URL="https://github.com/sonatype/chef-nexus-repository-manager/releases/download/${NEXUS_REPOSITORY_MANAGER_COOKBOOK_VERSION}/chef-nexus-repository-manager.tar.gz"
 
 ADD solo.json.erb /var/chef/solo.json.erb
+ADD chef-14.12.9-1.el7.x86_64.rpm /tmp
+ADD github.pem /etc/pki/ca-trust/source/anchors/
 
 # Install using chef-solo
 # Chef version locked to avoid needing to accept the EULA on behalf of whomever builds the image
-RUN yum install -y --disableplugin=subscription-manager hostname procps \
-    && curl -L https://www.chef.io/chef/install.sh | bash -s -- -v 14.12.9 \
+RUN echo "sslverify=false" >> /etc/yum.conf \
+    && yum install -y --disableplugin=subscription-manager hostname procps wget \
+    && rpm -ivh /tmp/chef-14.12.9-1.el7.x86_64.rpm \
+    && update-ca-trust \
+#    && curl --insecure  -L https://www.chef.io/chef/install.sh | bash -s -- -v 14.12.9-1 \
     && /opt/chef/embedded/bin/erb /var/chef/solo.json.erb > /var/chef/solo.json \
     && chef-solo \
-       --recipe-url ${NEXUS_REPOSITORY_MANAGER_COOKBOOK_URL} \
+        --recipe-url ${NEXUS_REPOSITORY_MANAGER_COOKBOOK_URL}
+       #--recipe-url /tmp/chef-nexus-repository-manager.tar.gz \
        --json-attributes /var/chef/solo.json \
     && rpm -qa *chef* | xargs rpm -e \
     && rm -rf /etc/chef \
